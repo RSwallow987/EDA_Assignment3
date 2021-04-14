@@ -1,0 +1,118 @@
+---
+title: "Rachel's Strava App"
+author: "Rachel Swallow"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_document
+    toc: true
+    toc_depth: 4
+    theme: paper 
+    df_print: paged
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height=5,
+                      fig.align='center',              tidy.opts=list(width.cutoff=60),
+                      tidy=TRUE, 
+                     warning = FALSE,echo=FALSE,comment=NA)
+library(knitr)
+library(tinytex)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(rmarkdown)
+library(ggrepel)
+library(reshape2)
+library(raster)
+```
+### Plagerism Declaration
+I understand the meaning of plagiarism and I declare that all of the work presented here in this report is my own, unless properly acknowledged. 
+
+### Assignment Description 
+\marginpar{\bf{[15]}}
+
+```{r loadingdata}
+directory <- ("./data/data")
+specdatafiles<-as.character(list.files(directory))
+specdatapaths <- paste(directory, specdatafiles, sep="/")
+
+files<-list()
+
+for(i in 1:length(specdatapaths))
+  {
+      files[[i]]<- read.csv(specdatapaths[i], header=T, sep=",")
+}
+
+# Save an object to a file
+saveRDS(files, file = "my_data.rds")
+
+```
+
+```{r}
+dateRange1<-c(ymd("2021-03-01"),ymd("2021-02-11"))
+my_data<- lapply(my_data, function(x) {
+  x$date <- ymd(x$date)
+  x$time<-hms(x$time)
+  x #why this ?
+})
+r<-lapply(my_data, function(x) filter(x, between(date,dateRange1[1],dateRange1[2]) ))
+r<-lapply(my_data, function(x) filter(x, date==dateRange1[1] ))
+   #For loop
+   ind<-c()
+   j<-1
+   for(i in 1:length(my_data)){
+      if (length(r[[i]]$date)>2){
+        
+        ind[j]<-i
+        j<-j+1
+        
+      }
+   }
+   
+b<-my_data[ind]#gives back a list of non-empty dataframes
+b<-as.data.frame(b)
+m <- st_as_sf(b,coords = c("lat","lng","elevation"),crs = 4326)
+
+activity_time<-m$time[length(m$time)]-m$time[1]
+# r1<-st_cast(m, "LINESTRING")
+# st_distance(m[1])
+# r2 <- st_zm(r1, drop = T, what = "ZM")
+
+# map; will plot successfully!
+# leaflet() %>%
+#   addTiles() %>%
+#   addMarkers(data = m$geometry)%>%
+#   addPopups(data=m$time)
+
+
+```
+```{r}
+# m <- leaflet() %>%
+#   addProviderTiles() %>%  # Add default OpenStreetMap map tiles
+#   addPolylines(lng=b$lng, lat=b$lat)
+#   addPolygons()
+# m  # Print the map
+# 
+# m <- leaflet() %>%
+# distance(c(b$lat[1],b$lng[1]),c(b$lat[2],b$lng[2]))
+# 
+# new_raster <- raster(b$elevation,level=1)
+# 
+# df = data.frame(Lat = 1:10, Long = rnorm(10))
+# leaflet(df) %>% addCircles()
+```
+
+Ideas 
+get_distance(): returns the total track distance, in meters
+get_start_time(): returns a Javascript Date object representing the starting time
+get_end_time(): returns a Javascript Date object representing when the last point was recorded
+get_moving_time(): returns the moving time, in milliseconds
+get_total_time(): returns the total track time, in milliseconds
+get_moving_pace(): returns the average moving pace in milliseconds per km
+get_moving_speed(): returns the average moving speed in km per hour
+get_total_speed(): returns the average total speed in km per hour
+get_elevation_min(): returns the lowest elevation, in meters
+get_elevation_max(): returns the highest elevation, in meters
+get_elevation_gain(): returns the cumulative elevation gain, in meters
+get_elevation_loss(): returns the cumulative elevation loss, in meters
