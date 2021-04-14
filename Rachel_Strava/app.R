@@ -85,7 +85,8 @@ server <- function(input, output, session) {
   
   output$text <- renderText({
     str(geodata())
-    hms(geodata()$time[length(geodata()$time)]-geodata()$time[1])
+    time1<-hms(hours="geodata()$time@hour[1]",minutes="geodata()$time@minute[1]",seconds="geodata()$time@.Data[1]");time1
+    #geodata()$time
 
   })
   
