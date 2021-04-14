@@ -20,7 +20,7 @@ library(lubridate)
 
 #Load data
 my_data <- readRDS("~/2021/EDA/EDA workspace/EDA_Assignment3/Rachel_Strava/data/my_data.rds")#Is this a probelm 
-#x<-c(1,2,3,4,5)
+#avgrun<-c(3,4,5)
 # handling the data conversions 
 my_data<- lapply(my_data, function(x) {
   x$date <- ymd(x$date)
@@ -51,7 +51,7 @@ ui <- fluidPage(
     ),
   mainPanel(
     leafletOutput("map"),
-    #tableOutput("table"),
+    # tableOutput("table"),
     textOutput("text")
     )
 )
@@ -73,25 +73,30 @@ server <- function(input, output, session) {
 
        }
     }
-#What would I do here to separate the data frames given back ? would I use a lapply ? 
      as.data.frame(my_data[ind])#gives back a list of non-empty dataframes
    })
   
   geodata<-reactive({
     m<-st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
-    m %>% st_crs()
-    ## Coordinate Reference System:
-    ##   EPSG: 4326 
-    ##   proj4string: "+proj=longlat +datum=WGS84 +no_defs"
-    # reprojecting
     my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
-    st_transform(m, crs = my_crs)
-    #st_distance(sights[1, ], sights[2, ])
+    sights<-st_transform(m, crs = my_crs)
+    
+    dist<-c()
+    for(i in 1:(length(sights$geometry)-1)){
+      dist[i]<-st_distance(sights$geometry[i],sights$geometry[i+1])#10m from 
+    }
+    
+    dist1<-c(0,dist)
+    sights$dist<-dist1
+    
+    sights_test<-sights%>%mutate(tot_dist<-cumsum(dist)/1000) #in meters 
+    sights_test
+
   })
-  
- # output$table <- renderTable({
-    #geodata()[1]
-  #  })
+  # 
+  # output$table <- renderTable({
+  #   geodata()
+  #   })
 
   output$text <- renderText({
     

@@ -73,37 +73,25 @@ r<-lapply(my_data, function(x) filter(x, date==dateRange1[1] ))
 b<-my_data[ind]#gives back a list of non-empty dataframes
 b<-as.data.frame(b)
 m <- st_as_sf(b,coords = c("lat","lng","elevation"),crs = 4326)
-m %>% st_crs()
+#m %>% st_crs()
 ## Coordinate Reference System:
 ##   EPSG: 4326 
 ##   proj4string: "+proj=longlat +datum=WGS84 +no_defs"
 # reprojecting
 my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
 sights <-  st_transform(m, crs = my_crs)
-st_distance(sights[1, ], sights[2, ])
 
+dist<-c()
+for(i in 1:(length(sights$geometry)-1)){
+  dist[i]<-st_distance(sights$geometry[i],sights$geometry[i+1])#10m from 
+}
 
-```
-```{r}
-# m <- leaflet() %>%
-#   addProviderTiles() %>%  # Add default OpenStreetMap map tiles
-#   addPolylines(lng=b$lng, lat=b$lat)
-#   addPolygons()
-# m  # Print the map
-# 
-# m <- leaflet() %>%
-# distance(c(b$lat[1],b$lng[1]),c(b$lat[2],b$lng[2]))
-# 
-# new_raster <- raster(b$elevation,level=1)
-# 
-# df = data.frame(Lat = 1:10, Long = rnorm(10))
-# leaflet(df) %>% addCircles()
-```
+dist1<-c(0,dist)
+sights$dist<-dist1
 
-```{r}
+sights_test<-sights%>%mutate(tot_dist<-cumsum(dist)/1000) #in meters 
 
 ```
-
 
 
 Ideas 
