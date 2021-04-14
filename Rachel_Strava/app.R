@@ -25,6 +25,7 @@ my_data <- readRDS("~/2021/EDA/EDA workspace/EDA_Assignment3/Rachel_Strava/data/
 my_data<- lapply(my_data, function(x) {
   x$date <- ymd(x$date)
   x$time<-hms(x$time)
+  x$time<-seconds(x$time)
   x #why this ?
 })
 
@@ -50,10 +51,11 @@ ui <- fluidPage(
     ),
   mainPanel(
     leafletOutput("map"),
-     # tableOutput("table"),
+    #tableOutput("table"),
     textOutput("text")
     )
 )
+
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
@@ -76,22 +78,31 @@ server <- function(input, output, session) {
    })
   
   geodata<-reactive({
-    st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
+    m<-st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
+    m %>% st_crs()
+    ## Coordinate Reference System:
+    ##   EPSG: 4326 
+    ##   proj4string: "+proj=longlat +datum=WGS84 +no_defs"
+    # reprojecting
+    my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
+    st_transform(m, crs = my_crs)
+    #st_distance(sights[1, ], sights[2, ])
   })
   
-  # output$table <- renderTable({
-  #   geodata()
-  #   })
-  
+ # output$table <- renderTable({
+    #geodata()[1]
+  #  })
+
   output$text <- renderText({
-    str(geodata())
-    time1<-hms(hours="geodata()$time@hour[1]",minutes="geodata()$time@minute[1]",seconds="geodata()$time@.Data[1]");time1
-    #geodata()$time
+    
+   round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2)
+   str(geodata())
+
 
   })
   
  output$map <- renderLeaflet({
-   leaflet() %>% addTiles() %>%addPolylines(lng=dataset()$lng, lat=dataset()$lat,col="#FC4C1A",popup="Running Route")#says its not subsetable
+   leaflet() %>% addTiles() %>%addPolylines(lng=dataset()$lng, lat=dataset()$lat,col="#FC4C1A",popup="Running Route")%>%addMiniMap(position = "bottomleft")#says its not subsetable
  })#Plotted in Strava colors 
    
 }

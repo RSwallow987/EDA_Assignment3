@@ -73,17 +73,14 @@ r<-lapply(my_data, function(x) filter(x, date==dateRange1[1] ))
 b<-my_data[ind]#gives back a list of non-empty dataframes
 b<-as.data.frame(b)
 m <- st_as_sf(b,coords = c("lat","lng","elevation"),crs = 4326)
-
-activity_time<-m$time[length(m$time)]-m$time[1]
-# r1<-st_cast(m, "LINESTRING")
-# st_distance(m[1])
-# r2 <- st_zm(r1, drop = T, what = "ZM")
-
-# map; will plot successfully!
-# leaflet() %>%
-#   addTiles() %>%
-#   addMarkers(data = m$geometry)%>%
-#   addPopups(data=m$time)
+m %>% st_crs()
+## Coordinate Reference System:
+##   EPSG: 4326 
+##   proj4string: "+proj=longlat +datum=WGS84 +no_defs"
+# reprojecting
+my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
+sights <-  st_transform(m, crs = my_crs)
+st_distance(sights[1, ], sights[2, ])
 
 
 ```
@@ -102,6 +99,12 @@ activity_time<-m$time[length(m$time)]-m$time[1]
 # df = data.frame(Lat = 1:10, Long = rnorm(10))
 # leaflet(df) %>% addCircles()
 ```
+
+```{r}
+
+```
+
+
 
 Ideas 
 get_distance(): returns the total track distance, in meters
