@@ -35,12 +35,12 @@ my_data<- lapply(my_data, function(x) {
 ui <- fluidPage(
   
   navbarPage("Rachel's Strava", theme = shinytheme("united"),
-             tabPanel("Activity Data", fluid = TRUE, icon = icon("globe-americas"),
+             tabPanel("Activity Data", fluid = TRUE, icon = icon("running"),
   #PAGE 1 
   sidebarLayout(
   sidebarPanel(
     
-    titlePanel("My Strava App"),
+    titlePanel("Strider"),
     
     
                     
@@ -64,13 +64,19 @@ ui <- fluidPage(
     #Draw Map 
     leafletOutput("map"),
     #Display Table of Data Metrics
-    dataTableOutput("table"),
+    #dataTableOutput("table"),
     #Text for debugging 
-    textOutput("text")
+    textOutput("act_t"),
+    textOutput("elv"),
+    textOutput("pace")
+   # textOutput("act")
+    # verbatimTextOutput("DistanceT"),
+    # verbatimTextOutput("AvgT"),
+    # verbatimTextOutput("ElevationT")
     )
 )),
 
-tabPanel("Activity Comparisons", fluid = TRUE, icon = icon("runner"),
+tabPanel("Activity Comparisons", fluid = TRUE, icon = icon("chart-bar"),
          titlePanel("Program Comparisons"),
          sidebarLayout(
            sidebarPanel(
@@ -129,16 +135,23 @@ server <- function(input, output, session) {
   
 #__________________________________________________________________________________________________________
   
-  output$table <- renderDataTable({
-    geodata()
-    })
+  # output$table <- renderDataTable({
+  # 
+  #   })
   
   
   #Renders Text
-  output$text <- renderText({
-   round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2)
+  output$act_t <- renderText({
+    paste("Total Activity Time:", round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2), "mins")
   })
   
+  output$elv <- renderText({
+    paste("Total Elevation Gain : 100m ")
+  })
+  
+  output$pace <- renderText({
+    paste("Average Pace : 5 min /km" )
+  })
   
   #Output Map 
  output$map <- renderLeaflet({
@@ -146,6 +159,21 @@ server <- function(input, output, session) {
  })#Plotted in Strava colors 
    
 }
+
+# output$act<-renderText({
+#   time1<-round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2)
+#   time1
+# 
+# })
+# output$DistanceT<-renderPrint({
+#   
+# })
+# output$AvgT<-renderPrint({
+#   
+# })
+# output$ElevationT<-renderPrint({
+#   
+# })
 
 
 # Run the application 
