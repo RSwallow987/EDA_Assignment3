@@ -17,6 +17,8 @@ library(dplyr)
 library(tidyverse)
 library(leaftime)
 library(lubridate)
+library(sf)
+library(shinythemes)
 
 #Load data
 my_data <- readRDS("~/2021/EDA/EDA workspace/EDA_Assignment3/Rachel_Strava/data/my_data.rds")#Is this a probelm 
@@ -31,34 +33,63 @@ my_data<- lapply(my_data, function(x) {
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-  theme = shinythemes::shinytheme("united"),
-  titlePanel("My Strava App"),
+  
+  navbarPage("Rachel's Strava", theme = shinytheme("united"),
+             tabPanel("Activity Data", fluid = TRUE, icon = icon("globe-americas"),
   #PAGE 1 
+  sidebarLayout(
   sidebarPanel(
+    
+    titlePanel("My Strava App"),
+    
+    
+                    
+    #Select Date of Run to plot                 
     dateInput('date',
               label = 'Run Date: ',
               value = "2021-03-01",
               min="2019-02-27",#Minimum date of run (002.csv)
               max="2021-03-01" #Maximum date of run (176.csv)
-    )
-   # PAGE 2
-    # dateRangeInput('dateRange',
-    #                label = 'Date Range: ',
-    #                start = "2021-02-01", end = "2021-03-01",#start on the last month of running
-    #                min="2019-02-27",#Minimum date of run (002.csv)
-    #                max="2021-03-01" #Maximum date of run (176.csv)
-    # )
+    ),
+    
+    titlePanel("Run Statistics"),
+    # Select which Data Metrics to display
+    checkboxGroupInput(inputId = "Run_data",
+                       label = "Select Run Statistics:",
+                       choices = c("Distance","Moving Time","Elevation Gain","Average Pace"),
+                       selected = c("Distance","Moving Time","Elevation Gain","Average Pace"))
+   
     ),
   mainPanel(
+    #Draw Map 
     leafletOutput("map"),
-    # tableOutput("table"),
+    #Display Table of Data Metrics
+    dataTableOutput("table"),
+    #Text for debugging 
     textOutput("text")
     )
+)),
+
+tabPanel("Activity Comparisons", fluid = TRUE, icon = icon("runner"),
+         titlePanel("Program Comparisons"),
+         sidebarLayout(
+           sidebarPanel(
+             
+           ),
+           mainPanel(
+             
+           )
+         )
+        )
 )
+)
+
 
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
+  
+  #Work with Data 
   dataset <- reactive({
     #r<-lapply(my_data, function(x) filter(x, date>=input$dateRange[1]&& date<=input$dateRange[2]))
     r<-lapply(my_data, function(x) filter(x, date==input$date))
@@ -75,7 +106,7 @@ server <- function(input, output, session) {
     }
      as.data.frame(my_data[ind])#gives back a list of non-empty dataframes
    })
-  
+  #Work with geo data 
   geodata<-reactive({
     m<-st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
     my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
@@ -93,24 +124,30 @@ server <- function(input, output, session) {
     sights_test
 
   })
-  # 
-  # output$table <- renderTable({
-  #   geodata()
-  #   })
 
+  
+  
+#__________________________________________________________________________________________________________
+  
+  output$table <- renderDataTable({
+    geodata()
+    })
+  
+  
+  #Renders Text
   output$text <- renderText({
-    
    round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2)
-   str(geodata())
-
-
   })
   
+  
+  #Output Map 
  output$map <- renderLeaflet({
    leaflet() %>% addTiles() %>%addPolylines(lng=dataset()$lng, lat=dataset()$lat,col="#FC4C1A",popup="Running Route")%>%addMiniMap(position = "bottomleft")#says its not subsetable
  })#Plotted in Strava colors 
    
 }
+
+
 # Run the application 
 shinyApp(ui = ui, server = server)
 
