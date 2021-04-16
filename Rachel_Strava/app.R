@@ -40,7 +40,7 @@ ui <- fluidPage(
   sidebarLayout(
   sidebarPanel(
     
-    titlePanel("Strider"),
+    titlePanel("Run Statistics"),
     
     
                     
@@ -50,42 +50,32 @@ ui <- fluidPage(
               value = "2021-03-01",
               min="2019-02-27",#Minimum date of run (002.csv)
               max="2021-03-01" #Maximum date of run (176.csv)
-    ),
-    
-    titlePanel("Run Statistics"),
+    )
     # Select which Data Metrics to display
-    checkboxGroupInput(inputId = "Run_data",
-                       label = "Select Run Statistics:",
-                       choices = c("Distance","Moving Time","Elevation Gain","Average Pace"),
-                       selected = c("Distance","Moving Time","Elevation Gain","Average Pace"))
+    # checkboxGroupInput(inputId = "Run_data",
+    #                    label = "Select Run Statistics:",
+    #                    choices = c("Distance","Moving Time","Elevation Gain","Average Pace"),
+    #                    selected = c("Distance","Moving Time","Elevation Gain","Average Pace"))
    
     ),
   mainPanel(
     #Draw Map 
     leafletOutput("map"),
-    #Display Table of Data Metrics
-    #dataTableOutput("table"),
-    #Text for debugging 
     textOutput("act_t"),
+    textOutput("dist"),
     textOutput("elv"),
     textOutput("pace")
-   # textOutput("act")
-    # verbatimTextOutput("DistanceT"),
-    # verbatimTextOutput("AvgT"),
-    # verbatimTextOutput("ElevationT")
+
     )
 )),
 
 tabPanel("Activity Comparisons", fluid = TRUE, icon = icon("chart-bar"),
-         titlePanel("Program Comparisons"),
-         sidebarLayout(
-           sidebarPanel(
-             
-           ),
+         titlePanel("Activity Breakdown "),
            mainPanel(
-             
+             #Display Table of Data Metrics
+             dataTableOutput("kmtable"),
+             textOutput("texty")
            )
-         )
         )
 )
 )
@@ -111,6 +101,8 @@ server <- function(input, output, session) {
        }
     }
      as.data.frame(my_data[ind])#gives back a list of non-empty dataframes
+    
+     #elevationgain<-
    })
   #Work with geo data 
   geodata<-reactive({
@@ -126,31 +118,62 @@ server <- function(input, output, session) {
     dist1<-c(0,dist)
     sights$dist<-dist1
     
-    sights_test<-sights%>%mutate(tot_dist<-cumsum(dist)/1000) #in meters 
+    sights_test<-sights%>%mutate(tot_dist=cumsum(dist)/1000) #in meters 
     sights_test
-
+  
   })
 
+  #Work out averages 
+  tot_distance<-reactive({
+    round(geodata()$tot_dist[length(geodata()$tot_dist)],2)
+  })
+  
+  acttime<- reactive({
+    round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2)
+  })
+  
+  elev<-reactive({
+    max(dataset()$elevation)-min(dataset()$elevation)
+  })
+  
+  splits<- reactive({
+    km<-seq(from=1,to=round(tot_distance()),by=1)#initilize coloumn one of dataframe = the kms 
+    splittime<-c()
+    for(i in 1:round(tot_distance())){
+      new<-geodata()%>%filter(tot_dist<i & tot_dist>=(i-1)) #filter out the data between the two kms relevent = 1km split 
+      splittime[i]<-round((new$time@.Data[length(new$time@.Data)]-new$time@.Data[1])/60,2)
+       
+    }
+    df<-as.data.frame(cbind(km,splittime))
+    df
+  })
   
   
 #__________________________________________________________________________________________________________
   
-  # output$table <- renderDataTable({
-  # 
-  #   })
+  output$kmtable <- renderDataTable({
+    splits()
+    })
   
-  
+  output$texty<-renderText({
+    splits()
+  })
+
   #Renders Text
   output$act_t <- renderText({
-    paste("Total Activity Time:", round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2), "mins")
+    paste("Total Activity Time:" ,acttime(), "mins")
+  })
+  
+  output$dist <- renderText({
+    paste("Total Distance: ",tot_distance(), "km")
   })
   
   output$elv <- renderText({
-    paste("Total Elevation Gain : 100m ")
+    paste("Total Elevation Gain: ",elev(), "m")
   })
   
   output$pace <- renderText({
-    paste("Average Pace : 5 min /km" )
+    paste("Average Pace :" ,round(acttime()/tot_distance(),2), "min /km" )
   })
   
   #Output Map 
@@ -159,21 +182,6 @@ server <- function(input, output, session) {
  })#Plotted in Strava colors 
    
 }
-
-# output$act<-renderText({
-#   time1<-round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2)
-#   time1
-# 
-# })
-# output$DistanceT<-renderPrint({
-#   
-# })
-# output$AvgT<-renderPrint({
-#   
-# })
-# output$ElevationT<-renderPrint({
-#   
-# })
 
 
 # Run the application 
