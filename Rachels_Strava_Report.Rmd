@@ -10,6 +10,15 @@ output: html_document
 runtime: shiny
 ---
 
+
+One can get fancy with allowing the user a lot of flexibility in terms of how they choose the various filters and splits. But you've captured the main idea nicely. 
+
+Best to change the column headings to something more text like ("Split time" rather than "splittime" etc).
+
+I'm not sure if this is an actual run but if so just double check your distance and time calculations because your speeds seem off. I've only looked at a few runs but they're like 50 mins for 10-12k, so not 1-2 min per km.
+
+Not sure why things are slow to recalculate... once you've filtered out the last few runs, which is fast, then the other operations are just averages, so should be fast too. One thing is that st_distance can be slow, so you might want to code the distance calculation yourself.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.height=5,
                       fig.align='center',              tidy.opts=list(width.cutoff=60),
@@ -33,6 +42,7 @@ I understand the meaning of plagiarism and I declare that all of the work presen
 \marginpar{\bf{[15]}}
 
 ```{r loadingdata}
+#Load data into a R object list 
 directory <- ("./data/data")
 specdatafiles<-as.character(list.files(directory))
 specdatapaths <- paste(directory, specdatafiles, sep="/")
@@ -45,87 +55,60 @@ for(i in 1:length(specdatapaths))
 }
 
 # Save an object to a file
-my_data<-saveRDS(files, file = "my_data.rds")
+saveRDS(files, file = "my_data.rds")
+my_data <- readRDS("~/2021/EDA/EDA workspace/EDA_Assignment3/my_data.rds")
+```
+
+```{r}
+dateRange1<-ymd("2021-03-01")
+my_data1<- lapply(my_data, function(x) {
+  x$date <- ymd(x$date)
+  x$time<-hms(x$time)
+  x
+})
+
+r<-lapply(my_data1, function(x) filter(x, date==dateRange1[1]))
+   #For loop
+   ind<-c()
+   j<-1
+   for(i in 1:length(my_data1)){
+      if (length(r[[i]]$date)>2){
+        ind[j]<-i
+        j<-j+1
+      }
+   }
+   
+b<-my_data1[ind]#gives back a list of non-empty dataframes
+b<-as.data.frame(b)
 
 ```
 
 ```{r}
-dateRange1<-c(ymd("2021-03-01"),ymd("2021-02-11"))
-my_data<- lapply(my_data, function(x) {
-  x$date <- ymd(x$date)
-  x$time<-hms(x$time)
-  x #why this ?
-})
-r<-lapply(my_data, function(x) filter(x, between(date,dateRange1[1],dateRange1[2]) ))
-r<-lapply(my_data, function(x) filter(x, date==dateRange1[1] ))
-   #For loop
-   ind<-c()
-   j<-1
-   for(i in 1:length(my_data)){
-      if (length(r[[i]]$date)>2){
-        
-        ind[j]<-i
-        j<-j+1
-        
-      }
-   }
-   
-b<-my_data[ind]#gives back a list of non-empty dataframes
-b<-as.data.frame(b)
-m <- st_as_sf(b,coords = c("lat","lng","elevation"),crs = 4326)
-#m %>% st_crs()
-## Coordinate Reference System:
-##   EPSG: 4326 
-##   proj4string: "+proj=longlat +datum=WGS84 +no_defs"
-# reprojecting
+geo<- st_as_sf(b,coords = c("lat","lng","elevation"),crs = 4326)
 my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
-sights <-  st_transform(m, crs = my_crs)
+geo <-st_transform(geo, crs = my_crs)
 
-dist<-c()
-for(i in 1:(length(sights$geometry)-1)){
-  dist[i]<-st_distance(sights$geometry[i],sights$geometry[i+1])#10m from 
+dist1<-c()
+for(i in 1:(length(geo$geometry)-1)){
+  dist1[i]<-st_distance(geo$geometry[i],geo$geometry[i+1],'meter')
 }
 
 dist1<-c(0,dist)
-sights$dist<-dist1
+geo$dist<-dist1
 
-sights_test<-sights%>%mutate(tot_dist=cumsum(dist)/1000) #in meters 
-
-elev<-max(b$elevation)-min(b$elevation)
-
-x<-c(0.1,0.2,1,5,5.9)
-time<-c(1,2,3,4,5)
-df1<-as.data.frame(cbind(time,x))
-
-df1%>%filter(x %% 1 == 0)
-
-splits<-c()
-for(i in 1:37){
-  aa<-sights_test%>%filter(tot_dist<1)%>%arrange(tot_dist)%>%summarise()
-  
-}
+geo<-geo%>%mutate(tot_dist=cumsum(dist)/1000) #in meters 
+tot_distance<-max(geo_test$tot_dist)
 
 km<-seq(from=1,to=round(tot_distance),by=1)#initilize coloumn one of dataframe = the kms 
 
- for(i in 1:round(tot_distance){
-      new<-sights_test%>%filter(tot_dist<i & tot_dist=>(i-1)) #filter out the data between the two kms relevent = 1km split 
-      splittime[i]<-round((new$time@.Data[length(new$time@.Data)]-new$time@.Data[1])/60,2)
-    }
-    df<-as.data.frame(cbind(km,splittime))
-    df
+splittime<-c()
+ for(i in 1:round(tot_distance)){
+      new<-geo%>%filter(tot_dist<i & tot_dist>=(i-1)) #filter out the data between the two kms relevent = 1km split 
+      splittime[i]<-round((new$time[length(new$time)]-new$time[1])/60)
+ }
+    splits_time<-as.data.frame(cbind(km,splittime))
+    splits_time
+    
+    
+elev<-max(b$elevation)-min(b$elevation) #elevation in meters
 ```
-
-
-Ideas 
-get_distance(): returns the total track distance, in meters
-get_start_time(): returns a Javascript Date object representing the starting time
-get_end_time(): returns a Javascript Date object representing when the last point was recorded
-get_moving_time(): returns the moving time, in milliseconds
-get_total_time(): returns the total track time, in milliseconds
-get_moving_pace(): returns the average moving pace in milliseconds per km
-get_moving_speed(): returns the average moving speed in km per hour
-get_total_speed(): returns the average total speed in km per hour
-get_elevation_min(): returns the lowest elevation, in meters
-get_elevation_max(): returns the highest elevation, in meters
-get_elevation_gain(): returns the cumulative elevation gain, in meters
-get_elevation_loss(): returns the cumulative elevation loss, in meters

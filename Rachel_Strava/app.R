@@ -1,66 +1,60 @@
+# This application does the following:
 # a) allows the user to map their run i.e. to visualize their run on a map,
 # b) provides the user with different summary statistics about their runs 
 # and allows them to interrogate the dataset of their runs in different ways. 
-# The app should be accompanied by documentation (in any format e.g. Rmd, docx, pdf) 
-# explaining how to use the app and giving a short worked example demonstrating the app.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-#Load Librarys
+# c) The app is accompanied by documentation explaining how to use the app and giving a short worked example demonstrating the app.
+
+
+#libraries for ui and sever
 library(shiny)
-library(leaflet)
-library(raster)
-library(spData)
+library(shinythemes)
+#Data Filtering 
 library(dplyr)
 library(tidyverse)
+#Mapping data and distances
+library(leaflet)
 library(leaftime)
-library(lubridate)
+library(spData)
 library(sf)
-library(shinythemes)
+#Working with Time and Dates
+library(lubridate)
 
 #Load data
 my_data <- readRDS("~/2021/EDA/EDA workspace/EDA_Assignment3/Rachel_Strava/data/my_data.rds")#Is this a probelm 
-#avgrun<-c(3,4,5)
+
 # handling the data conversions 
 my_data<- lapply(my_data, function(x) {
-  x$date <- ymd(x$date)
-  x$time<-hms(x$time)
-  x$time<-seconds(x$time)
-  x #why this ?
+  x$date <- ymd(x$date) #Convert str date to a lubridate date 
+  x$time<-hms(x$time)# Convert str time to a lubridate time 
+  x$time<-seconds(x$time) #Convert time to a total seconds 
+  x 
 })
 
-# Define UI for application that draws a histogram
+# Define UI for application
 ui <- fluidPage(
   
-  navbarPage("Rachel's Strava", theme = shinytheme("united"),
-             tabPanel("Activity Data", fluid = TRUE, icon = icon("running"),
+  navbarPage("Rachel's Strava", theme = shinytheme("united"), #Add a navigation panel with a nice theme 
+             tabPanel("Activity Data", fluid = TRUE, icon = icon("running"), #Add icons for nav sections 
   #PAGE 1 
-  sidebarLayout(
+  sidebarLayout( #define sideoanel layout 
   sidebarPanel(
     
-    titlePanel("Run Statistics"),
+    titlePanel("Run Statistics"), #Give a title to the side bar and Page 
     
     
                     
-    #Select Date of Run to plot                 
+    #User can select date of the run they want to plot                
     dateInput('date',
-              label = 'Run Date: ',
-              value = "2021-03-01",
+              label = 'Pick a run date: ', #guide the user to pick a date of the run they want to analyze
+              value = "2021-03-01", #Start date is set as the last run 
               min="2019-02-27",#Minimum date of run (002.csv)
               max="2021-03-01" #Maximum date of run (176.csv)
     )
-    # Select which Data Metrics to display
-    # checkboxGroupInput(inputId = "Run_data",
-    #                    label = "Select Run Statistics:",
-    #                    choices = c("Distance","Moving Time","Elevation Gain","Average Pace"),
-    #                    selected = c("Distance","Moving Time","Elevation Gain","Average Pace"))
-   
     ),
-  mainPanel(
+  mainPanel( #in the main panel of the first page plot
     #Draw Map 
-    leafletOutput("map"),
+    leafletOutput("map"), #UI Map
+    #Summary Statistics 
     textOutput("act_t"),
     textOutput("dist"),
     textOutput("elv"),
@@ -69,27 +63,22 @@ ui <- fluidPage(
     )
 )),
 
-tabPanel("Activity Comparisons", fluid = TRUE, icon = icon("chart-bar"),
-         titlePanel("Activity Breakdown "),
+tabPanel("Activity Splits", fluid = TRUE, icon = icon("chart-bar"), #Label the second nav page 
+         titlePanel("Activity Breakdown "), 
            mainPanel(
              #Display Table of Data Metrics
-             dataTableOutput("kmtable"),
-             textOutput("texty")
+             dataTableOutput("kmtable")#interactive data table for splits
            )
         )
 )
 )
 
-
-
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
   
-  #Work with Data 
   dataset <- reactive({
-    #r<-lapply(my_data, function(x) filter(x, date>=input$dateRange[1]&& date<=input$dateRange[2]))
-    r<-lapply(my_data, function(x) filter(x, date==input$date))
-    #For loop
+    r<-lapply(my_data, function(x) filter(x, date==input$date)) #Select the dataframe in the list with the matching date 
+    #Filter out all the dataframes in the list with number of rows smaller than 2. Remaining list will only contain the dataframe of the run. 
     ind<-c()
     j<-1
     for(i in 1:length(my_data)){
@@ -101,12 +90,12 @@ server <- function(input, output, session) {
        }
     }
      as.data.frame(my_data[ind])#gives back a list of non-empty dataframes
-    
-     #elevationgain<-
    })
+  
   #Work with geo data 
   geodata<-reactive({
-    m<-st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
+    #m<-st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
+    m<-st_as_sf(dataset(),coords = c("lat","lng"),crs = 4326)
     my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
     sights<-st_transform(m, crs = my_crs)
     
@@ -149,15 +138,7 @@ server <- function(input, output, session) {
   })
   
   
-#__________________________________________________________________________________________________________
-  
-  output$kmtable <- renderDataTable({
-    splits()
-    })
-  
-  output$texty<-renderText({
-    splits()
-  })
+# PAGE 1__________________________________________________________________________________________________________
 
   #Renders Text
   output$act_t <- renderText({
@@ -180,9 +161,19 @@ server <- function(input, output, session) {
  output$map <- renderLeaflet({
    leaflet() %>% addTiles() %>%addPolylines(lng=dataset()$lng, lat=dataset()$lat,col="#FC4C1A",popup="Running Route")%>%addMiniMap(position = "bottomleft")#says its not subsetable
  })#Plotted in Strava colors 
-   
+ 
+#PAGE 2_________________________________________________________________________________________________________
+ 
+ output$kmtable <- renderDataTable({
+   splits()
+ },
+ options = list(  columns = list(
+   list(title = 'Kilometer Split'),
+   list(title = 'Split time (min)')
+ ))
+ )
+ 
 }
-
 
 # Run the application 
 shinyApp(ui = ui, server = server)
