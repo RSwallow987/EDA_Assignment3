@@ -34,6 +34,7 @@ library(rmarkdown)
 library(ggrepel)
 library(reshape2)
 library(raster)
+library(sf)
 ```
 ### Plagerism Declaration
 I understand the meaning of plagiarism and I declare that all of the work presented here in this report is my own, unless properly acknowledged. 
@@ -83,7 +84,18 @@ b<-as.data.frame(b)
 
 ```
 
-```{r}
+```{r method1}
+geo<- st_as_sf(b,coords = c("lat","lng","elevation"),crs = 4326)
+my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
+geo <-st_transform(geo, crs = my_crs)
+dist<-st_coordinates(geo)
+dist<-as.data.frame(dist)
+dist<-dist%>%mutate(distance=sqrt((X-lag(X))^2+(Y-lag(Y))^2))
+dist$distance[1]<-0
+dist<-dist%>%mutate(tot_dist=cumsum(distance)/1000)
+```
+
+```{r method2}
 geo<- st_as_sf(b,coords = c("lat","lng","elevation"),crs = 4326)
 my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
 geo <-st_transform(geo, crs = my_crs)
@@ -92,10 +104,11 @@ dist1<-c()
 for(i in 1:(length(geo$geometry)-1)){
   dist1[i]<-st_distance(geo$geometry[i],geo$geometry[i+1],'meter')
 }
-
+#dist2<-st_distance(geo,by)
+dist2<-st_distance(geo$geometry,by_element = TRUE)
 dist1<-c(0,dist)
 geo$dist<-dist1
-
+#st_coordinate then dataframe, lag ()
 geo<-geo%>%mutate(tot_dist=cumsum(dist)/1000) #in meters 
 tot_distance<-max(geo_test$tot_dist)
 
