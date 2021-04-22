@@ -95,45 +95,46 @@ server <- function(input, output, session) {
   #Work with geo data 
   geodata<-reactive({
     #m<-st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
-    m<-st_as_sf(dataset(),coords = c("lat","lng"),crs = 4326)
-    my_crs <- "+proj=utm +zone=34H +datum=WGS84 +units=m +no_defs" #for Beaufort 
-    sights<-st_transform(m, crs = my_crs)
+    m<-st_as_sf(dataset(),coords = c("lat","lng"),crs = 4326) #Projection for distance calculations 
+    my_crs <- "+proj=utm +zone=34S +datum=WGS84 +units=m +no_defs" #for Beaufort 
+    sights<-st_transform(m, crs = my_crs) #transform 
+    
     
     dist<-c()
     for(i in 1:(length(sights$geometry)-1)){
-      dist[i]<-st_distance(sights$geometry[i],sights$geometry[i+1])#10m from 
+      dist[i]<-st_distance(sights$geometry[i],sights$geometry[i+1])#Calculate the distance between points 
     }
     
-    dist1<-c(0,dist)
-    sights$dist<-dist1
+    dist1<-c(0,dist)#replace index 1 with a zero 
+    sights$dist<-dist1 #Add the coloumn to sights 
     
-    sights_test<-sights%>%mutate(tot_dist=cumsum(dist)/1000) #in meters 
-    sights_test
+    sights_test<-sights%>%mutate(tot_dist=cumsum(dist)/1000) #cumulative sum in km
+    sights_test #return dataframe 
   
   })
 
   #Work out averages 
   tot_distance<-reactive({
-    round(geodata()$tot_dist[length(geodata()$tot_dist)],2)
+    round(geodata()$tot_dist[length(geodata()$tot_dist)],2)#get last entry - total distance 
   })
   
   acttime<- reactive({
-    round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2)
+    round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2) #Difference in seconds between first point and last point divided by 60 = minutes 
   })
   
   elev<-reactive({
-    max(dataset()$elevation)-min(dataset()$elevation)
+    max(dataset()$elevation)-min(dataset()$elevation)#Change in elevation 
   })
   
   splits<- reactive({
     km<-seq(from=1,to=round(tot_distance()),by=1)#initilize coloumn one of dataframe = the kms 
-    splittime<-c()
-    for(i in 1:round(tot_distance())){
+    splittime<-c()#empty list 
+    for(i in 1:round(tot_distance())){ #for kms of run 
       new<-geodata()%>%filter(tot_dist<i & tot_dist>=(i-1)) #filter out the data between the two kms relevent = 1km split 
-      splittime[i]<-round((new$time@.Data[length(new$time@.Data)]-new$time@.Data[1])/60,2)
+      splittime[i]<-round((new$time@.Data[length(new$time@.Data)]-new$time@.Data[1])/60,2)#time differences between the two datapoints representing the km difference 
        
     }
-    df<-as.data.frame(cbind(km,splittime))
+    df<-as.data.frame(cbind(km,splittime))#return a dataframe 
     df
   })
   
@@ -164,7 +165,7 @@ server <- function(input, output, session) {
  
 #PAGE 2_________________________________________________________________________________________________________
  
- output$kmtable <- renderDataTable({
+ output$kmtable <- renderDataTable({ #Plot a reactive table 
    splits()
  },
  options = list(  columns = list(
