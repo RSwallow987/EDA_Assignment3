@@ -1,0 +1,207 @@
+---
+title: "Rachel's Strava App"
+author: "Rachel Swallow"
+date: "23 April 2021"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height=5,
+                      fig.align='center',              tidy.opts=list(width.cutoff=60),
+                      tidy=TRUE, 
+                     warning = FALSE,echo=FALSE,comment=NA)
+library(knitr)
+library(tinytex)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(rmarkdown)
+library(ggrepel)
+library(reshape2)
+library(raster)
+library(sf)
+library(shiny)
+library(leaflet)
+```
+### Plagerism Declaration
+I understand the meaning of plagiarism and I declare that all of the work presented here in this report is my own, unless properly acknowledged. 
+
+## Assignment Data Description
+The assignment involved creating a Shiny web app to enable the user to interact with their wearable device data, in this case the GPS data collected from their running activities. 
+
+For this application demonstration, a collection of 174 runs completed by a user in Beaufort West were used.
+
+The data collected from the wearable device used in this application was time- stamped location data points. These points included X, Y and Z co-ordinates with an associated time and date. 
+
+The data was read into the application using a RDS object. The code for the rds object creation is included in this rmd file, however it is commented out as it is no longer necessary. 
+
+```{r rdscreate}
+#Load data into a R object list 
+# directory <- ("./data/data")
+# specdatafiles<-as.character(list.files(directory))
+# specdatapaths <- paste(directory, specdatafiles, sep="/")
+# 
+# files<-list()
+# 
+# for(i in 1:length(specdatapaths))
+#   {
+#       files[[i]]<- read.csv(specdatapaths[i], header=T, sep=",")
+# }
+# 
+# # Save an object to a file
+# saveRDS(files, file = "my_data.rds")
+# my_data <- readRDS("~/2021/EDA/EDA workspace/EDA_Assignment3/my_data.rds")
+```
+
+
+## Web App Interface 
+
+The web app should allow the user to map their run and give the user useful summary statistics about their run. For this assignment, I found that the most useful bits of information when analyzing a running activity are:
+
+* Total Activity Time 
+* Total Elevation Gained 
+* Total Distance 
+* Average Pace 
+* Kilometer Splits 
+* Map of Run 
+
+This is similar to what Strava shows you when you have completed an activity. The design of the web app includes a navigation page to choose which data statistics to show. It is also designed to fit the original Strava color theme. 
+
+```{r dataload}
+my_data<-readRDS("my_data.rds")
+# handling the data conversions 
+my_data<- lapply(my_data, function(x) {
+  x$date <- ymd(x$date) #Convert str date to a lubridate date 
+  x$time<-hms(x$time)# Convert str time to a lubridate time 
+  x$time<-seconds(x$time) #Convert time to a total seconds 
+  x 
+})
+```
+### Page One: Activity Data 
+#### Calander Select 
+A calendar select option was chosen so that the user could select to view the activity analysis for a run that occurred on a specific date. This feature was implemented so that any user data could be loaded into web app and there would still be the appropriate selection options. This would not be the case for a user input that had "hard coded" selection options for dates. 
+
+The shiny app segment show below allows the user to select the date of interest and then shows the subsequent visualized run using an interactive map. The user can zoom in on parts of the run for a more detailed map view, this can be done using the '+' or '-' signs in the top left corner of the map, or by scrolling on their mouse. 
+
+The map shows a smaller map in the bottom left corner so the user can get a broader context of the area of their run. The map route also has a pop-up message when it is clicked. 
+
+To visualize some different runs in the data set use the following dates:
+
+* 26-02-2021
+* 13 02 2021
+* 20 02 2021
+* 09 02 2021
+* 31 01 2021
+
+```{r calander}
+dateInput('date',
+              label = 'Pick a run date: ', #guide the user to pick a date of the run they want to analyze
+              value = "2021-03-01", #Start date is set as the last run 
+              min="2019-02-27",#Minimum date of run (002.csv)
+              max="2021-03-01" #Maximum date of run (176.csv)
+    )
+dataset <- reactive({
+    r<-lapply(my_data, function(x) filter(x, date==input$date)) #Select the dataframe in the list with the matching date 
+    #Filter out all the dataframes in the list with number of rows smaller than 2. Remaining list will only contain the dataframe of the run. 
+    ind<-c()
+    j<-1
+    for(i in 1:length(my_data)){
+       if (length(r[[i]]$date)>2){
+
+         ind[j]<-i
+         j<-j+1
+
+       }
+    }
+     as.data.frame(my_data[ind])#gives back a list of non-empty dataframes
+   })
+
+renderLeaflet({
+   leaflet() %>% addTiles() %>%addPolylines(lng=dataset()$lng,     lat=dataset()$lat,col="#FC4C1A",popup="Running Route")%>%addMiniMap(position = "bottomleft")#says its not subsetable
+ })#Plotted in Strava colors 
+```
+
+#### Summary Statistics
+
+```{r summarystats}
+    geodata<-reactive({
+    #m<-st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
+    m<-st_as_sf(dataset(),coords = c("lat","lng"),crs = 4326) #Projection for distance calculations 
+    my_crs <- "+proj=utm +zone=34S +datum=WGS84 +units=m +no_defs" #for Beaufort 
+    sights<-st_transform(m, crs = my_crs) #transform 
+    
+    
+    dist<-c()
+    for(i in 1:(length(sights$geometry)-1)){
+      dist[i]<-st_distance(sights$geometry[i],sights$geometry[i+1])#Calculate the distance between points 
+    }
+    
+    dist1<-c(0,dist)#replace index 1 with a zero 
+    sights$dist<-dist1 #Add the coloumn to sights 
+    
+    sights_test<-sights%>%mutate(tot_dist=cumsum(dist)/1000) #cumulative sum in km
+    sights_test #return dataframe 
+  
+  })
+
+  #Work out averages 
+  tot_distance<-reactive({
+    round(geodata()$tot_dist[length(geodata()$tot_dist)],2)#get last entry - total distance 
+  })
+  
+  acttime<- reactive({
+    round((dataset()$time@.Data[length(dataset()$time@.Data)]-dataset()$time@.Data[1])/60,2) #Difference in seconds between first point and last point divided by 60 = minutes 
+  })
+  
+  elev<-reactive({
+    max(dataset()$elevation)-min(dataset()$elevation)#Change in elevation 
+  })
+  
+  renderText({
+    paste("Total Activity Time:" ,acttime(), "mins")
+  })
+  
+  renderText({
+    paste("Total Distance: ",tot_distance(), "km")
+  })
+  
+  renderText({
+    paste("Total Elevation Gain: ",elev(), "m")
+  })
+  
+  renderText({
+    paste("Average Pace :" ,round(acttime()/tot_distance(),2), "min /km" )
+  })
+```
+
+
+The user is presented with a number of summary statistics that are relevant to their run.
+
+### Page 2: Activity Splits 
+
+The second page in the navigation page shows the user an interactive table of their kilometer split times from their run. The user can display the desired amount of kilometers. They can also search for a specific kilometer time using the search functionality. 
+```{r splits}
+splits<- reactive({
+    km<-seq(from=1,to=round(tot_distance()),by=1)#initilize coloumn one of dataframe = the kms 
+    splittime<-c()#empty list 
+    for(i in 1:round(tot_distance())){ #for kms of run 
+      new<-geodata()%>%filter(tot_dist<i & tot_dist>=(i-1)) #filter out the data between the two kms relevent = 1km split 
+      splittime[i]<-round((new$time@.Data[length(new$time@.Data)]-new$time@.Data[1])/60,2)#time differences between the two datapoints representing the km difference 
+       
+    }
+    df<-as.data.frame(cbind(km,splittime))#return a dataframe 
+    df
+  })
+
+renderDataTable({ #Plot a reactive table 
+   splits()
+ },
+ options = list(  columns = list(
+   list(title = 'Kilometer Split'),
+   list(title = 'Split time (min)')
+ ))
+ )
+```
+
