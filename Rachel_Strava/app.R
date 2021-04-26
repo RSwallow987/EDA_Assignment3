@@ -95,7 +95,7 @@ server <- function(input, output, session) {
   #Work with geo data 
   geodata<-reactive({
     #m<-st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
-    m<-st_as_sf(dataset(),coords = c("lat","lng"),crs = 4326) #Projection for distance calculations 
+    m<-st_as_sf(dataset(),coords = c("lng","lat"),crs = 4326) #Projection for distance calculations 
     my_crs <- "+proj=utm +zone=34S +datum=WGS84 +units=m +no_defs" #for Beaufort 
     sights<-st_transform(m, crs = my_crs) #transform 
     

@@ -128,7 +128,7 @@ renderLeaflet({
 ```{r summarystats}
     geodata<-reactive({
     #m<-st_as_sf(dataset(),coords = c("lat","lng","elevation"),crs = 4326)
-    m<-st_as_sf(dataset(),coords = c("lat","lng"),crs = 4326) #Projection for distance calculations 
+    m<-st_as_sf(dataset(),coords = c("lng","lat"),crs = 4326) #Projection for distance calculations 
     my_crs <- "+proj=utm +zone=34S +datum=WGS84 +units=m +no_defs" #for Beaufort 
     sights<-st_transform(m, crs = my_crs) #transform 
     
@@ -203,5 +203,81 @@ renderDataTable({ #Plot a reactive table
    list(title = 'Split time (min)')
  ))
  )
+```
+
+##### Added Notes on Distance calculations:
+The code in the rmd file shows how the distance was calulated using two different methods for a test date. The two methods gave the same answer of 37.7km. 
+```{r exampledata}
+dateRange1<-ymd("2021-03-01")
+my_data1<- lapply(my_data, function(x) {
+  x$date <- ymd(x$date)
+  x$time<-hms(x$time)
+  x
+})
+
+r<-lapply(my_data1, function(x) filter(x, date==dateRange1[1]))
+   #For loop
+   ind<-c()
+   j<-1
+   for(i in 1:length(my_data1)){
+      if (length(r[[i]]$date)>2){
+        ind[j]<-i
+        j<-j+1
+      }
+   }
+   
+b<-my_data1[ind]#gives back a list of non-empty dataframes
+b<-as.data.frame(b)
+```
+
+
+```{r method1}
+geo<- st_as_sf(b,coords = c("lng","lat"),crs = 4326)
+geo <-st_transform(geo, crs = "+proj=utm +zone=34 +datum=WGS84 +units=m +no_defs")
+dist<-st_coordinates(geo)
+dist<-as.data.frame(dist)
+dist<-dist%>%mutate(distance=sqrt((X-lag(X))^2+(Y-lag(Y))^2))
+dist$distance[1]<-0
+dist<-dist%>%mutate(tot_dist=cumsum(distance)/1000)
+tot_dist1<-max(dist$tot_dist)
+```
+
+```{r method2}
+geo1<- st_as_sf(b,coords = c("lng","lat","elevation"),crs = 4326)
+my_crs <-  "+proj=utm +zone=34 +datum=WGS84 +units=m +no_defs"
+geo1 <-st_transform(geo1, crs = my_crs)
+
+dist1<-c()
+for(i in 1:(length(geo1$geometry)-1)){
+  dist1[i]<-st_distance(geo1$geometry[i],geo1$geometry[i+1],'meter')
+}
+dist1<-c(0,dist1)
+geo1$dist<-dist1
+
+#st_coordinate then dataframe, lag ()
+geo1<-geo1%>%mutate(tot_dist=cumsum(dist1)/1000) #in meters 
+tot_dist2<-max(geo1$tot_dist)
+```
+
+```{r}
+library(dplyr)
+library(sf)
+library(tidyr)
+
+x <- read.csv("data/data/175.csv")
+x <- b %>% 
+  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>% 
+  st_transform(crs = "+proj=utm +zone=34 +datum=WGS84 +units=m +no_defs")
+
+xdf <- st_coordinates(x) %>% as.data.frame() %>% rename(x = X, y = Y) 
+
+xdf <- xdf %>% 
+  mutate(dist = sqrt((x-lag(x))^2+(y-lag(y))^2),
+         dist = replace_na(dist, 0),
+         cumdist = cumsum(dist))
+
+max(xdf$cumdist)
+
+
 ```
 
